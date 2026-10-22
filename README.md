@@ -40,7 +40,7 @@ Usé PostgreSQL sobre Supabase. La privacidad entre amigos se controla con Row L
 
 ## Documentación
 
-* [Objetivos del proyecto](Documentos/Objetivos_Del_Proyecto.docx)
+* [Objetivos del proyecto](Documentos/Objetivos_Del_Proyecto.pdf)
 * [Modelo de datos](Documentos/Modelo_De_Datos.pdf)
 * [Script de la base de datos](BaseDeDatos/schema.sql)
 * [Flujo de autenticación e inventario](Documentos/Diagramas/flujo_autenticacion_inventario.png)
