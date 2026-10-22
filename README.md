@@ -36,7 +36,7 @@ El inicio de sesión se hace con Google OAuth y Supabase Auth emite el token JWT
   <img src="Documentos/Diagramas/modelo_datos.png" alt="Modelo de datos de Gum" width="100%">
 </p>
 
-Usé PostgreSQL sobre Supabase. La privacidad entre amigos se controla con Row Level Security directamente en la base de datos, y las reglas de los outfits y de las solicitudes de amistad se validan en funciones SQL. El script completo está en la carpeta BaseDeDatos.
+Elegí PostgreSQL con Supabase y no MySQL con un backend propio porque el proyecto necesita guardar datos, guardar fotos y avisar al otro dispositivo cuando algo cambia. Supabase ya trae Auth, Storage y Realtime, y con Row Level Security la privacidad queda en la base de datos y no en código que se me pueda olvidar repetir. Los amigos confirmados pueden ver el catálogo porque una recomendación no tiene sentido si no ven la ropa, pero solo leen: no editan ni borran nada.
 
 ## Documentación
 
