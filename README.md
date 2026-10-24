@@ -2,7 +2,7 @@
 
 Aplicación multiplataforma (Android y PC) para digitalizar tu armario con fotos, probarte prendas sobre una foto tuya de cuerpo completo, armar outfits y recibir recomendaciones de tus amigos, con todo sincronizado en tiempo real entre tus dispositivos.
 
-**Estado del proyecto:** en desarrollo. Por ahora el repositorio contiene la documentación, el diseño del sistema y el script de la base de datos. El código de la aplicación se publicará próximamente.
+**Estado del proyecto:** en desarrollo. La versión web ya permite iniciar sesión con Google, gestionar el inventario de prendas y armar outfits. El módulo social, el probador virtual y la versión de Android están pendientes.
 
 ## Funciones principales
 
@@ -11,6 +11,27 @@ Aplicación multiplataforma (Android y PC) para digitalizar tu armario con fotos
 * **Outfits:** creación de combinaciones con reglas de validez (superior e inferior, o cuerpo completo), nombre y estilo obligatorios.
 * **Módulo social:** amigos vinculados por Gmail que pueden armarte sugerencias de outfits sobre tu foto, para que las aceptes o las descartes.
 * **Sincronización en tiempo real** entre Android y PC, con aviso de estado de conexión.
+
+## Lo que ya funciona
+
+* Inicio de sesión con Google y creación automática del perfil.
+* Alta de prendas con foto, guardada en un bucket privado de Supabase Storage.
+* Catálogo con filtros por categoría, estilo y color.
+* Edición de prendas, con reemplazo de la foto, y eliminación con confirmación.
+* Creación de outfits con validación de las reglas en la app y en la base de datos.
+* Lista de outfits con las fotos de sus prendas.
+
+## Capturas
+
+<p>
+  <img src="Documentos/Capturas/catalogo.png" alt="Catálogo de prendas con filtros" width="48%">
+  <img src="Documentos/Capturas/nueva_prenda.png" alt="Formulario para crear una prenda" width="48%">
+</p>
+
+<p>
+  <img src="Documentos/Capturas/nuevo_outfit.png" alt="Creación de un outfit" width="48%">
+  <img src="Documentos/Capturas/mis_outfits.png" alt="Lista de outfits guardados" width="48%">
+</p>
 
 ## Tecnologías
 
@@ -38,9 +59,26 @@ El inicio de sesión se hace con Google OAuth y Supabase Auth emite el token JWT
 
 Elegí PostgreSQL con Supabase y no MySQL con un backend propio porque el proyecto necesita guardar datos, guardar fotos y avisar al otro dispositivo cuando algo cambia. Supabase ya trae Auth, Storage y Realtime, y con Row Level Security la privacidad queda en la base de datos y no en código que se me pueda olvidar repetir. Los amigos confirmados pueden ver el catálogo porque una recomendación no tiene sentido si no ven la ropa, pero solo leen: no editan ni borran nada.
 
+## Cómo ejecutarlo
+
+Requisitos: Flutter (canal estable), un proyecto de Supabase y un cliente OAuth de Google Cloud.
+
+1. Clona el repositorio.
+2. En Supabase, abre el SQL Editor y ejecuta el contenido de `BaseDeDatos/schema.sql`.
+3. En Supabase, en Authentication, activa el proveedor de Google con tu ID y secreto de cliente. Como Site URL usa `http://localhost:3000` y agrega `http://localhost:3000/**` en las Redirect URLs.
+4. Copia `App/env.example.json` como `App/env.json` y completa la URL del proyecto y la clave publishable.
+5. Desde la carpeta `App`, ejecuta:
+
+```
+flutter pub get
+flutter run -d chrome --web-port=3000 --dart-define-from-file=env.json
+```
+
+Importante: la clave secreta de Supabase no se usa en la app y nunca debe ir en `env.json`. El archivo `env.json` está en el `.gitignore` y no se sube al repositorio.
+
 ## Documentación
 
-* [Objetivos del proyecto](Documentos/Objetivos_Del_Proyecto.pdf)
+* [Objetivos del proyecto](Documentos/Objetivos_Del_Proyecto.docx)
 * [Modelo de datos](Documentos/Modelo_De_Datos.pdf)
 * [Script de la base de datos](BaseDeDatos/schema.sql)
 * [Flujo de autenticación e inventario](Documentos/Diagramas/flujo_autenticacion_inventario.png)
@@ -49,8 +87,10 @@ Elegí PostgreSQL con Supabase y no MySQL con un backend propio porque el proyec
 
 ## Próximos pasos
 
-* Publicar el código de la aplicación
-* Agregar capturas de pantalla e instrucciones para ejecutar el proyecto
+* Módulo social: amigos por Gmail, solicitudes y recomendaciones de outfits
+* Foto personal y probador virtual
+* Compresión de imágenes a WebP y sincronización en tiempo real
+* Versión de Android con inicio de sesión nativo
 
 ## Autor
 
