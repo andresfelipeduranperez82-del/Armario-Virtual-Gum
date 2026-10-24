@@ -38,6 +38,15 @@ class _PantallaNuevaPrendaState extends State<PantallaNuevaPrenda> {
     setState(() {
       _bytes = bytes;
       _extension = nombre.contains('.') ? nombre.split('.').last.toLowerCase() : 'jpg';
+      _error = null;
+    });
+  }
+
+  /* Descarta la foto elegida sin salir del formulario */
+  void _quitarFoto() {
+    setState(() {
+      _bytes = null;
+      _extension = 'jpg';
     });
   }
 
@@ -87,10 +96,24 @@ class _PantallaNuevaPrendaState extends State<PantallaNuevaPrenda> {
                   child: Image.memory(_bytes!, height: 260, fit: BoxFit.cover),
                 ),
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _guardando ? null : _elegirFoto,
-                icon: const Icon(Icons.photo_library),
-                label: Text(_bytes == null ? 'Elegir foto de la galería' : 'Cambiar foto'),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _guardando ? null : _elegirFoto,
+                      icon: const Icon(Icons.photo_library),
+                      label: Text(_bytes == null ? 'Elegir foto de la galería' : 'Cambiar foto'),
+                    ),
+                  ),
+                  if (_bytes != null) ...[
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: _guardando ? null : _quitarFoto,
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Quitar foto'),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
