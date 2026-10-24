@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'pantallas/pantalla_catalogo.dart';
 import 'pantallas/pantalla_login.dart';
+import 'pantallas/pantalla_principal.dart';
 import 'servicios/cliente.dart';
 
 /* Las claves llegan desde env.json con --dart-define-from-file, nunca escritas aquí */
@@ -11,7 +11,8 @@ const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);  runApp(const GumApp());
+  await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+  runApp(const GumApp());
 }
 
 class GumApp extends StatelessWidget {
@@ -27,7 +28,7 @@ class GumApp extends StatelessWidget {
   }
 }
 
-/* Muestra el login o el catálogo según haya sesión iniciada */
+/* Muestra el login o la pantalla principal según haya sesión iniciada */
 class PuertaDeEntrada extends StatelessWidget {
   const PuertaDeEntrada({super.key});
 
@@ -37,7 +38,7 @@ class PuertaDeEntrada extends StatelessWidget {
       stream: supabase.auth.onAuthStateChange,
       builder: (context, snapshot) {
         final sesion = supabase.auth.currentSession;
-        return sesion == null ? const PantallaLogin() : const PantallaCatalogo();
+        return sesion == null ? const PantallaLogin() : const PantallaPrincipal();
       },
     );
   }
