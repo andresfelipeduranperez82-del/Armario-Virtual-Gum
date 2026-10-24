@@ -1,0 +1,137 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../servicios/prendas_servicio.dart';
+
+class PantallaNuevaPrenda extends StatefulWidget {
+  const PantallaNuevaPrenda({super.key});
+
+  @override
+  State<PantallaNuevaPrenda> createState() => _PantallaNuevaPrendaState();
+}
+
+class _PantallaNuevaPrendaState extends State<PantallaNuevaPrenda> {
+  final _servicio = PrendasServicio();
+
+  Uint8List? _bytes;
+  String _extension = 'jpg';
+  String? _categoria;
+  String? _color;
+  String? _estilo;
+  bool _guardando = false;
+  String? _error;
+
+  Future<void> _elegirFoto() async {
+    /* maxWidth y imageQuality reducen el peso de la foto antes de subirla */
+    final foto = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1080,
+      imageQuality: 80,
+    );
+    if (foto == null) return;
+
+    final bytes = await foto.readAsBytes();
+    final nombre = foto.name;
+    if (!mounted) return;
+    setState(() {
+      _bytes = bytes;
+      _extension = nombre.contains('.') ? nombre.split('.').last.toLowerCase() : 'jpg';
+    });
+  }
+
+  Future<void> _guardar() async {
+    if (_bytes == null || _categoria == null || _color == null || _estilo == null) {
+      setState(() => _error = 'Elige una foto, la categoría, el color y el estilo.');
+      return;
+    }
+
+    setState(() {
+      _guardando = true;
+      _error = null;
+    });
+
+    try {
+      await _servicio.crear(
+        bytes: _bytes!,
+        extension: _extension,
+        categoria: _categoria!,
+        color: _color!,
+        estilo: _estilo!,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _guardando = false;
+        _error = 'No se pudo guardar: $e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Nueva prenda')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (_bytes != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(_bytes!, height: 260, fit: BoxFit.cover),
+                ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _guardando ? null : _elegirFoto,
+                icon: const Icon(Icons.photo_library),
+                label: Text(_bytes == null ? 'Elegir foto de la galería' : 'Cambiar foto'),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _categoria,
+                decoration: const InputDecoration(labelText: 'Categoría *', border: OutlineInputBorder()),
+                items: categorias.entries
+                    .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                    .toList(),
+                onChanged: (v) => setState(() => _categoria = v),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _color,
+                decoration: const InputDecoration(labelText: 'Color principal *', border: OutlineInputBorder()),
+                items: colores.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: (v) => setState(() => _color = v),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _estilo,
+                decoration: const InputDecoration(labelText: 'Estilo *', border: OutlineInputBorder()),
+                items: estilos.entries
+                    .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                    .toList(),
+                onChanged: (v) => setState(() => _estilo = v),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ],
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: _guardando ? null : _guardar,
+                child: _guardando
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Guardar prenda'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
