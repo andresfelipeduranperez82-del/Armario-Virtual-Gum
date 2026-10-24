@@ -1,121 +1,169 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-void main() {
-  runApp(const MyApp());
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+/* Las claves llegan desde env.json con --dart-define-from-file, nunca escritas aquí */
+const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  runApp(const GumApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+final supabase = Supabase.instance.client;
 
-  // This widget is the root of your application.
+class GumApp extends StatelessWidget {
+  const GumApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      title: 'Gum Armario Virtual',
+      theme: ThemeData(colorSchemeSeed: Colors.deepPurple, useMaterial3: true),
+      home: const PuertaDeEntrada(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+/* Decide qué pantalla mostrar según haya o no sesión iniciada.
+   Incluye una línea de depuración temporal para ver qué está pasando. */
+class PuertaDeEntrada extends StatefulWidget {
+  const PuertaDeEntrada({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<PuertaDeEntrada> createState() => _PuertaDeEntradaState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _PuertaDeEntradaState extends State<PuertaDeEntrada> {
+  String _ultimoEvento = 'ninguno';
+  String _errorStream = '';
+  late final StreamSubscription<AuthState> _suscripcion;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _suscripcion = supabase.auth.onAuthStateChange.listen(
+      (datos) => setState(() => _ultimoEvento = datos.event.name),
+      onError: (Object e) => setState(() => _errorStream = e.toString()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _suscripcion.cancel();
+    super.dispose();
+  }
+
+  /* Busca un mensaje de error que Supabase haya dejado en la dirección */
+  String _errorDeLaUrl() {
+    final parametros = <String, String>{...Uri.base.queryParameters};
+    if (Uri.base.fragment.contains('=')) {
+      try {
+        parametros.addAll(Uri.splitQueryString(Uri.base.fragment));
+      } catch (_) {}
+    }
+    return parametros['error_description'] ?? parametros['error'] ?? '';
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final sesion = supabase.auth.currentSession;
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: Column(
+        children: [
+          Expanded(
+            child: sesion == null
+                ? const PantallaLogin()
+                : PantallaInicio(userId: sesion.user.id, email: sesion.user.email ?? ''),
+          ),
+          Container(
+            width: double.infinity,
+            color: Colors.black12,
+            padding: const EdgeInsets.all(8),
+            child: Text(
+              'Depuración: evento=$_ultimoEvento, sesión=${sesion != null}, '
+              'errorUrl=${_errorDeLaUrl()}, errorStream=$_errorStream',
+              style: const TextStyle(fontSize: 12),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+class PantallaLogin extends StatelessWidget {
+  const PantallaLogin({super.key});
+
+  Future<void> _entrarConGoogle() async {
+    await supabase.auth.signInWithOAuth(
+      OAuthProvider.google,
+      /* En web vuelve a la misma página. En Android se configura un deep link más adelante */
+      redirectTo: kIsWeb ? null : 'io.supabase.flutter://callback',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Gum Armario Virtual', style: TextStyle(fontSize: 28)),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: _entrarConGoogle,
+            icon: const Icon(Icons.login),
+            label: const Text('Iniciar sesión con Google'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PantallaInicio extends StatelessWidget {
+  const PantallaInicio({super.key, required this.userId, required this.email});
+
+  final String userId;
+  final String email;
+
+  /* Lee el perfil que creó automáticamente el trigger de la base de datos */
+  Future<String> _cargarPerfil() async {
+    final perfil = await supabase.from('perfiles').select().eq('id', userId).maybeSingle();
+    if (perfil == null) {
+      return 'No se encontró el perfil en la base de datos';
+    }
+    return 'Perfil encontrado: ${perfil['nombre']}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Sesión iniciada como $email'),
+          const SizedBox(height: 12),
+          FutureBuilder<String>(
+            future: _cargarPerfil(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error}');
+              }
+              return Text(snapshot.data ?? 'Cargando perfil...');
+            },
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => supabase.auth.signOut(),
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
       ),
     );
   }
