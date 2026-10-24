@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../servicios/cliente.dart';
 import '../servicios/prendas_servicio.dart';
+import 'pantalla_editar_prenda.dart';
 import 'pantalla_nueva_prenda.dart';
 
 class PantallaCatalogo extends StatefulWidget {
@@ -37,6 +38,15 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
       MaterialPageRoute(builder: (_) => const PantallaNuevaPrenda()),
     );
     if (guardada == true) {
+      _recargar();
+    }
+  }
+
+  Future<void> _editar(Prenda prenda) async {
+    final cambio = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => PantallaEditarPrenda(prenda: prenda)),
+    );
+    if (cambio == true) {
       _recargar();
     }
   }
@@ -185,7 +195,10 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
                           childAspectRatio: 0.8,
                         ),
                         itemCount: visibles.length,
-                        itemBuilder: (context, i) => _TarjetaPrenda(prenda: visibles[i]),
+                        itemBuilder: (context, i) => _TarjetaPrenda(
+                          prenda: visibles[i],
+                          alTocar: () => _editar(visibles[i]),
+                        ),
                       ),
               ),
             ],
@@ -197,16 +210,19 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
 }
 
 class _TarjetaPrenda extends StatelessWidget {
-  const _TarjetaPrenda({required this.prenda});
+  const _TarjetaPrenda({required this.prenda, required this.alTocar});
 
   final Prenda prenda;
+  final VoidCallback alTocar;
 
   @override
   Widget build(BuildContext context) {
     final url = prenda.urlImagen;
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: Column(
+      child: InkWell(
+        onTap: alTocar,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
@@ -228,6 +244,7 @@ class _TarjetaPrenda extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }

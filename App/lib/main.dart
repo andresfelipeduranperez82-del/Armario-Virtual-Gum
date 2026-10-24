@@ -11,8 +11,7 @@ const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-  runApp(const GumApp());
+await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);  runApp(const GumApp());
 }
 
 class GumApp extends StatelessWidget {

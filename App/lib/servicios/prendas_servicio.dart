@@ -124,6 +124,66 @@ class PrendasServicio {
     }
   }
 
+  /* Cuenta en cuántos outfits está una prenda, usando la función de la base de datos */
+  Future<int> contarOutfits(String prendaId) async {
+    final resultado = await supabase.rpc(
+      'contar_outfits_de_prenda',
+      params: {'p_prenda': prendaId},
+    );
+    return (resultado as num).toInt();
+  }
+
+  /* Modifica los datos de la prenda. Si hay foto nueva, reemplaza la anterior en Storage */
+  Future<void> actualizar({
+    required Prenda prenda,
+    required String categoria,
+    required String color,
+    required String estilo,
+    Uint8List? nuevaFoto,
+    String extension = 'jpg',
+  }) async {
+    final userId = supabase.auth.currentUser!.id;
+    String? rutaNueva;
+
+    if (nuevaFoto != null) {
+      rutaNueva = '$userId/${DateTime.now().microsecondsSinceEpoch}.$extension';
+      await supabase.storage.from(_bucket).uploadBinary(
+            rutaNueva,
+            nuevaFoto,
+            fileOptions: FileOptions(contentType: _tipoContenido(extension)),
+          );
+    }
+
+    try {
+      await supabase.from('prendas').update({
+        'categoria': categoria,
+        'color_principal': color,
+        'estilo': estilo,
+        if (rutaNueva != null) 'imagen_path': rutaNueva,
+      }).eq('id', prenda.id);
+    } catch (e) {
+      if (rutaNueva != null) {
+        await supabase.storage.from(_bucket).remove([rutaNueva]);
+      }
+      rethrow;
+    }
+
+    /* La foto anterior ya no se usa, se borra para no dejar archivos huérfanos */
+    if (rutaNueva != null) {
+      try {
+        await supabase.storage.from(_bucket).remove([prenda.imagenPath]);
+      } catch (_) {}
+    }
+  }
+
+  /* Elimina la prenda. El trigger de la base de datos borra también sus outfits */
+  Future<void> eliminar(Prenda prenda) async {
+    await supabase.from('prendas').delete().eq('id', prenda.id);
+    try {
+      await supabase.storage.from(_bucket).remove([prenda.imagenPath]);
+    } catch (_) {}
+  }
+
   String _tipoContenido(String extension) {
     switch (extension) {
       case 'png':
