@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'pantalla_amigos.dart';
 import 'pantalla_catalogo.dart';
 import 'pantalla_outfits.dart';
+import 'pantalla_recomendaciones.dart';
 
-/* Pantalla con la barra inferior para moverse entre prendas, outfits y amigos */
+/* Pantalla con la barra inferior para moverse entre las secciones de la app */
 class PantallaPrincipal extends StatefulWidget {
   const PantallaPrincipal({super.key});
 
@@ -21,8 +22,10 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         return const PantallaCatalogo();
       case 1:
         return const PantallaOutfits();
-      default:
+      case 2:
         return const PantallaAmigos();
+      default:
+        return const PantallaRecomendaciones();
     }
   }
 
@@ -37,6 +40,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
           NavigationDestination(icon: Icon(Icons.checkroom), label: 'Prendas'),
           NavigationDestination(icon: Icon(Icons.style), label: 'Outfits'),
           NavigationDestination(icon: Icon(Icons.group), label: 'Amigos'),
+          NavigationDestination(icon: Icon(Icons.inbox), label: 'Recomendaciones'),
         ],
       ),
     );

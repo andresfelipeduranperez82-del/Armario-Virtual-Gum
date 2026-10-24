@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../servicios/amigos_servicio.dart';
 import '../servicios/cliente.dart';
+import 'pantalla_recomendar.dart';
 
 class PantallaAmigos extends StatefulWidget {
   const PantallaAmigos({super.key});
@@ -109,6 +110,17 @@ class _PantallaAmigosState extends State<PantallaAmigos> {
     if (!mounted) return;
     setState(() => _enviando = false);
     await _cargar();
+  }
+
+  Future<void> _recomendar(Amistad a) async {
+    final enviada = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PantallaRecomendar(amigoId: a.otroId, amigoNombre: a.nombreVisible),
+      ),
+    );
+    if (enviada == true && mounted) {
+      _aviso('Recomendación enviada a ${a.nombreVisible}');
+    }
   }
 
   Future<void> _eliminarAmigo(Amistad a) async {
@@ -271,13 +283,16 @@ class _PantallaAmigosState extends State<PantallaAmigos> {
                             correo: a.otroEmail,
                             acciones: PopupMenuButton<String>(
                               onSelected: (valor) {
-                                if (valor == 'eliminar') {
+                                if (valor == 'recomendar') {
+                                  _recomendar(a);
+                                } else if (valor == 'eliminar') {
                                   _eliminarAmigo(a);
                                 } else {
                                   _bloquear(a);
                                 }
                               },
                               itemBuilder: (context) => const [
+                                PopupMenuItem(value: 'recomendar', child: Text('Armar un outfit para esta persona')),
                                 PopupMenuItem(value: 'eliminar', child: Text('Eliminar amigo')),
                                 PopupMenuItem(value: 'bloquear', child: Text('Bloquear')),
                               ],
