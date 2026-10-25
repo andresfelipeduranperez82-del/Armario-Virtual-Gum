@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -11,13 +12,23 @@ import '../servicios/recorte_fondo.dart';
 
 enum _Modo { puesta, aislada }
 
-/* Una prenda colocada sobre el lienzo. Centro y ancho van como fracción del lienzo. */
+/* Una prenda colocada sobre el lienzo.
+   El centro va como fracción del lienzo. El anclaje vertical dice qué punto de la prenda
+   queda sobre ese centro: 0 es el borde de arriba, 0.5 el medio y 1 el borde de abajo. */
 class _Capa {
-  _Capa({required this.prenda, required this.centro, required this.ancho});
+  _Capa({
+    required this.prenda,
+    required this.centro,
+    required this.ancho,
+    required this.anclaVertical,
+  });
 
   final Prenda prenda;
   Offset centro;
   double ancho;
+  final double anclaVertical;
+  double angulo = 0;
+  bool volteada = false;
 }
 
 class PantallaProbador extends StatefulWidget {
@@ -39,8 +50,10 @@ class _PantallaProbadorState extends State<PantallaProbador> {
   _Modo _modo = _Modo.puesta;
   int? _seleccionada;
   double _anchoInicial = 0.5;
+  double _anguloInicial = 0;
+  bool _sombra = true;
 
-  /* Recorte de fondo */
+  /* Recorte de fondo para las prendas que todavía tienen su fondo original */
   final Map<String, Uint8List> _originales = {};
   Map<String, ui.Image> _recortes = {};
   bool _sinFondo = false;
@@ -62,7 +75,9 @@ class _PantallaProbadorState extends State<PantallaProbador> {
     super.dispose();
   }
 
-  /* Posición inicial aproximada de cada categoría sobre el cuerpo */
+  /* Posición inicial aproximada de cada categoría sobre el cuerpo.
+     Se ancla por el borde de arriba (hombros y cintura) o de abajo (pies), no por el centro,
+     para que la prenda caiga en su sitio sin importar qué tan alta sea su foto. */
   List<_Capa> _crearCapas() {
     final prendas = [...widget.outfit.prendas]
       ..sort((a, b) => _ordenDeDibujo.indexOf(a.categoria).compareTo(_ordenDeDibujo.indexOf(b.categoria)));
@@ -70,18 +85,18 @@ class _PantallaProbadorState extends State<PantallaProbador> {
     return prendas.map((p) {
       switch (p.categoria) {
         case 'cuerpo_completo':
-          return _Capa(prenda: p, centro: const Offset(0.5, 0.5), ancho: 0.6);
+          return _Capa(prenda: p, centro: const Offset(0.5, 0.15), ancho: 0.6, anclaVertical: 0);
         case 'abrigo':
-          return _Capa(prenda: p, centro: const Offset(0.5, 0.33), ancho: 0.6);
+          return _Capa(prenda: p, centro: const Offset(0.5, 0.15), ancho: 0.62, anclaVertical: 0);
         case 'superior':
-          return _Capa(prenda: p, centro: const Offset(0.5, 0.31), ancho: 0.5);
+          return _Capa(prenda: p, centro: const Offset(0.5, 0.17), ancho: 0.5, anclaVertical: 0);
         case 'inferior':
-          return _Capa(prenda: p, centro: const Offset(0.5, 0.6), ancho: 0.42);
+          return _Capa(prenda: p, centro: const Offset(0.5, 0.45), ancho: 0.42, anclaVertical: 0);
         case 'calzado':
-          return _Capa(prenda: p, centro: const Offset(0.5, 0.9), ancho: 0.36);
+          return _Capa(prenda: p, centro: const Offset(0.5, 0.97), ancho: 0.34, anclaVertical: 1);
         default:
           final i = accesorios++;
-          return _Capa(prenda: p, centro: Offset(0.82, 0.14 + i * 0.14), ancho: 0.2);
+          return _Capa(prenda: p, centro: Offset(0.82, 0.14 + i * 0.14), ancho: 0.2, anclaVertical: 0.5);
       }
     }).toList();
   }
@@ -145,18 +160,49 @@ class _PantallaProbadorState extends State<PantallaProbador> {
     );
   }
 
-  /* Muestra la prenda con el fondo quitado si el recorte está activo y listo */
+  /* Sombra suave debajo de la prenda: la misma imagen en negro, desenfocada y desplazada */
+  Widget _conSombra(Widget imagen) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Transform.translate(
+          offset: const Offset(4, 8),
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+            child: Opacity(
+              opacity: 0.35,
+              child: ColorFiltered(
+                colorFilter: const ColorFilter.mode(Colors.black, BlendMode.srcIn),
+                child: imagen,
+              ),
+            ),
+          ),
+        ),
+        imagen,
+      ],
+    );
+  }
+
+  /* Muestra la prenda con el fondo quitado si ya lo tiene o si el recorte está activo y listo */
   Widget _imagenDeCapa(_Capa capa, double w) {
     final recorte = _sinFondo ? _recortes[capa.prenda.id] : null;
+    final yaTransparente = capa.prenda.imagenPath.toLowerCase().endsWith('.png');
+    Widget imagen;
     if (recorte != null) {
-      return RawImage(image: recorte, width: capa.ancho * w, fit: BoxFit.contain);
+      imagen = RawImage(image: recorte, width: capa.ancho * w, fit: BoxFit.contain);
+    } else {
+      imagen = Image.network(
+        capa.prenda.urlImagen!,
+        width: capa.ancho * w,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => const Icon(Icons.broken_image, size: 40),
+      );
     }
-    return Image.network(
-      capa.prenda.urlImagen!,
-      width: capa.ancho * w,
-      fit: BoxFit.contain,
-      errorBuilder: (_, _, _) => const Icon(Icons.broken_image, size: 40),
-    );
+    imagen = Transform.flip(flipX: capa.volteada, child: imagen);
+
+    /* La sombra solo tiene sentido si la prenda no tiene fondo. Con fondo se vería un rectángulo oscuro. */
+    final sinFondo = recorte != null || yaTransparente;
+    return (_sombra && sinFondo) ? _conSombra(imagen) : imagen;
   }
 
   Widget _capa(int i, double w, double h) {
@@ -168,11 +214,12 @@ class _PantallaProbadorState extends State<PantallaProbador> {
       left: capa.centro.dx * w,
       top: capa.centro.dy * h,
       child: FractionalTranslation(
-        translation: const Offset(-0.5, -0.5),
+        translation: Offset(-0.5, -capa.anclaVertical),
         child: GestureDetector(
           onTap: () => setState(() => _seleccionada = i),
           onScaleStart: (_) {
             _anchoInicial = capa.ancho;
+            _anguloInicial = capa.angulo;
             setState(() => _seleccionada = i);
           },
           onScaleUpdate: (d) {
@@ -183,16 +230,70 @@ class _PantallaProbadorState extends State<PantallaProbador> {
               if (d.scale != 1.0) {
                 capa.ancho = (_anchoInicial * d.scale).clamp(_anchoMinimo, _anchoMaximo).toDouble();
               }
+              if (d.rotation != 0.0) {
+                capa.angulo = _anguloInicial + d.rotation;
+              }
             });
           },
-          child: Container(
-            decoration: BoxDecoration(
-              border: _seleccionada == i ? Border.all(color: color, width: 2) : null,
+          child: Transform.rotate(
+            angle: capa.angulo,
+            child: Container(
+              decoration: BoxDecoration(
+                border: _seleccionada == i ? Border.all(color: color, width: 2) : null,
+              ),
+              child: _imagenDeCapa(capa, w),
             ),
-            child: _imagenDeCapa(capa, w),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _controlesDeLaPrenda(_Capa capa) {
+    final grados = (capa.angulo * 180 / math.pi).clamp(-45.0, 45.0).toDouble();
+    return Column(
+      children: [
+        Row(
+          children: [
+            const SizedBox(width: 56, child: Text('Tamaño')),
+            Expanded(
+              child: Slider(
+                value: capa.ancho.clamp(_anchoMinimo, _anchoMaximo).toDouble(),
+                min: _anchoMinimo,
+                max: _anchoMaximo,
+                onChanged: (v) => setState(() => capa.ancho = v),
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            const SizedBox(width: 56, child: Text('Giro')),
+            Expanded(
+              child: Slider(
+                value: grados,
+                min: -45,
+                max: 45,
+                onChanged: (v) => setState(() => capa.angulo = v * math.pi / 180),
+              ),
+            ),
+          ],
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton.icon(
+              onPressed: () => setState(() => capa.volteada = !capa.volteada),
+              icon: const Icon(Icons.flip),
+              label: const Text('Voltear'),
+            ),
+            TextButton(
+              onPressed: () => setState(() => _seleccionada = null),
+              child: const Text('Listo'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -202,8 +303,15 @@ class _PantallaProbadorState extends State<PantallaProbador> {
       children: [
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
+          title: const Text('Sombra suave'),
+          subtitle: const Text('Se aplica a las prendas que ya no tienen fondo.'),
+          value: _sombra,
+          onChanged: (valor) => setState(() => _sombra = valor),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
           title: const Text('Quitar fondo claro de las prendas'),
-          subtitle: const Text('Funciona mejor con fondos lisos y claros.'),
+          subtitle: const Text('Para prendas subidas antes con su fondo. Funciona mejor con fondos lisos y claros.'),
           value: _sinFondo,
           onChanged: _procesando
               ? null
@@ -264,26 +372,10 @@ class _PantallaProbadorState extends State<PantallaProbador> {
         ),
         const SizedBox(height: 8),
         if (seleccionada != null)
-          Row(
-            children: [
-              const Text('Tamaño'),
-              Expanded(
-                child: Slider(
-                  value: _capas[seleccionada].ancho.clamp(_anchoMinimo, _anchoMaximo).toDouble(),
-                  min: _anchoMinimo,
-                  max: _anchoMaximo,
-                  onChanged: (v) => setState(() => _capas[seleccionada].ancho = v),
-                ),
-              ),
-              TextButton(
-                onPressed: () => setState(() => _seleccionada = null),
-                child: const Text('Listo'),
-              ),
-            ],
-          )
+          _controlesDeLaPrenda(_capas[seleccionada])
         else
           const Text(
-            'Arrastra cada prenda para acomodarla sobre la foto. Toca una prenda para cambiar su tamaño con el control deslizante.',
+            'Arrastra cada prenda para acomodarla sobre la foto. Toca una prenda para cambiar su tamaño, girarla o voltearla.',
             style: TextStyle(fontSize: 13),
           ),
         const SizedBox(height: 8),

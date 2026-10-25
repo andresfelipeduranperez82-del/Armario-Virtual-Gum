@@ -193,9 +193,25 @@ class _PantallaPerfilState extends State<PantallaPerfil> {
                           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                         ],
                         const SizedBox(height: 12),
-                        const Text(
-                          'Consejo: una foto de pie, de frente y de cuerpo completo, con fondo claro, se verá mejor en el probador.',
-                          style: TextStyle(fontSize: 13),
+                        const Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Cómo tomar la foto para el probador',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                SizedBox(height: 8),
+                                Text('• De pie, de frente, con la espalda recta y los brazos un poco separados del cuerpo.'),
+                                Text('• Cuerpo completo: que se vea desde la cabeza hasta los pies.'),
+                                Text('• Foto vertical, con la persona centrada y sin cortar los pies.'),
+                                Text('• Fondo liso y claro, y buena luz de frente.'),
+                                Text('• Ropa ajustada y de color neutro, para que las prendas se vean mejor encima.'),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),

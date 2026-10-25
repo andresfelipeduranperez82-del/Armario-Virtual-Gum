@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-/* Quita el fondo claro de la foto de una prenda y devuelve una imagen con transparencia.
+/* Quita el fondo claro de la foto de una prenda y devuelve una imagen con transparencia,
+   recortada al contorno de la prenda.
 
    Cómo funciona: toma como color de fondo el promedio de los píxeles del borde y borra,
    avanzando desde los bordes hacia adentro, los píxeles parecidos a ese color. Como solo
-   avanza desde afuera, el interior de una prenda blanca no se borra.
+   avanza desde afuera, el interior de una prenda blanca no se borra. Al final recorta los
+   márgenes transparentes para que la prenda ocupe todo el cuadro, lo que permite colocarla
+   con precisión sobre el cuerpo.
 
    Limitación: funciona bien con fondos lisos y claros. Con fondos oscuros, con textura
    o con mucho degradado, el resultado es parcial. Para esos casos haría falta un
@@ -24,19 +28,23 @@ Future<ui.Image> recortarFondo(
   final ancho = origen.width;
   final alto = origen.height;
   final datos = await origen.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
+  origen.dispose();
   codec.dispose();
   if (datos == null) {
-    origen.dispose();
     throw Exception('No se pudo leer la imagen');
   }
   final px = Uint8List.fromList(datos.buffer.asUint8List());
   final total = ancho * alto;
 
-  /* Si el borde ya es transparente, la imagen ya tiene el fondo quitado y se deja igual */
+  /* Si el borde ya es transparente, la imagen ya tiene el fondo quitado: solo se recortan los márgenes */
   if (_bordeTransparente(px, ancho, alto)) {
-    return origen;
+    final yaTransparente = Uint8List(total);
+    for (var idx = 0; idx < total; idx++) {
+      if (px[idx * 4 + 3] < 16) yaTransparente[idx] = 1;
+    }
+    _premultiplicar(px, total);
+    return _construir(px, ancho, alto, yaTransparente);
   }
-  origen.dispose();
 
   /* Color de fondo: promedio de los píxeles del borde */
   var sumaR = 0;
@@ -153,8 +161,60 @@ Future<ui.Image> recortarFondo(
     }
   }
 
+  return _construir(px, ancho, alto, transparente);
+}
+
+/* Convierte los colores a alfa premultiplicado, que es lo que espera decodeImageFromPixels */
+void _premultiplicar(Uint8List px, int total) {
+  for (var idx = 0; idx < total; idx++) {
+    final i = idx * 4;
+    final a = px[i + 3];
+    if (a < 255) {
+      px[i] = px[i] * a ~/ 255;
+      px[i + 1] = px[i + 1] * a ~/ 255;
+      px[i + 2] = px[i + 2] * a ~/ 255;
+    }
+  }
+}
+
+/* Recorta los márgenes transparentes y arma la imagen final */
+Future<ui.Image> _construir(Uint8List px, int ancho, int alto, Uint8List transparente) {
+  var minX = ancho;
+  var maxX = -1;
+  var minY = alto;
+  var maxY = -1;
+  for (var y = 0; y < alto; y++) {
+    for (var x = 0; x < ancho; x++) {
+      if (transparente[y * ancho + x] == 0) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  var salida = px;
+  var anchoSalida = ancho;
+  var altoSalida = alto;
+
+  /* Si no quedó ningún píxel visible se deja la imagen como está, sin recortar */
+  if (maxX >= minX && maxY >= minY) {
+    minX = math.max(0, minX - 2);
+    minY = math.max(0, minY - 2);
+    maxX = math.min(ancho - 1, maxX + 2);
+    maxY = math.min(alto - 1, maxY + 2);
+    anchoSalida = maxX - minX + 1;
+    altoSalida = maxY - minY + 1;
+    salida = Uint8List(anchoSalida * altoSalida * 4);
+    for (var y = 0; y < altoSalida; y++) {
+      final desde = ((minY + y) * ancho + minX) * 4;
+      salida.setRange(y * anchoSalida * 4, (y + 1) * anchoSalida * 4, px, desde);
+    }
+  }
+
   final completer = Completer<ui.Image>();
-  ui.decodeImageFromPixels(px, ancho, alto, ui.PixelFormat.rgba8888, completer.complete);
+  ui.decodeImageFromPixels(salida, anchoSalida, altoSalida, ui.PixelFormat.rgba8888, completer.complete);
   return completer.future;
 }
 
