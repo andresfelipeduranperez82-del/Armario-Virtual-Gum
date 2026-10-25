@@ -1,8 +1,13 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
+import '../servicios/cliente.dart';
 import '../servicios/outfits_servicio.dart';
 import '../servicios/perfil_servicio.dart';
 import '../servicios/prendas_servicio.dart';
+import '../servicios/recorte_fondo.dart';
 
 enum _Modo { puesta, aislada }
 
@@ -35,10 +40,26 @@ class _PantallaProbadorState extends State<PantallaProbador> {
   int? _seleccionada;
   double _anchoInicial = 0.5;
 
+  /* Recorte de fondo */
+  final Map<String, Uint8List> _originales = {};
+  Map<String, ui.Image> _recortes = {};
+  bool _sinFondo = false;
+  double _tolerancia = 38;
+  bool _procesando = false;
+  String? _errorRecorte;
+
   @override
   void initState() {
     super.initState();
     _capas = _crearCapas();
+  }
+
+  @override
+  void dispose() {
+    for (final imagen in _recortes.values) {
+      imagen.dispose();
+    }
+    super.dispose();
   }
 
   /* Posición inicial aproximada de cada categoría sobre el cuerpo */
@@ -65,6 +86,47 @@ class _PantallaProbadorState extends State<PantallaProbador> {
     }).toList();
   }
 
+  /* Descarga cada foto original una sola vez y les quita el fondo */
+  Future<void> _procesar() async {
+    setState(() {
+      _procesando = true;
+      _errorRecorte = null;
+    });
+    try {
+      final nuevos = <String, ui.Image>{};
+      for (final capa in _capas) {
+        final id = capa.prenda.id;
+        final original =
+            _originales[id] ?? await supabase.storage.from('prendas').download(capa.prenda.imagenPath);
+        _originales[id] = original;
+        nuevos[id] = await recortarFondo(original, tolerancia: _tolerancia);
+      }
+      if (!mounted) {
+        for (final imagen in nuevos.values) {
+          imagen.dispose();
+        }
+        return;
+      }
+      final viejos = _recortes.values.toList();
+      setState(() {
+        _recortes = nuevos;
+        _procesando = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final imagen in viejos) {
+          imagen.dispose();
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _procesando = false;
+        _sinFondo = false;
+        _errorRecorte = 'No se pudo quitar el fondo: $e';
+      });
+    }
+  }
+
   Widget _fondo(Perfil? perfil, double alto) {
     final url = perfil?.urlFoto;
     final color = Theme.of(context).colorScheme.surfaceContainerHighest;
@@ -83,10 +145,23 @@ class _PantallaProbadorState extends State<PantallaProbador> {
     );
   }
 
+  /* Muestra la prenda con el fondo quitado si el recorte está activo y listo */
+  Widget _imagenDeCapa(_Capa capa, double w) {
+    final recorte = _sinFondo ? _recortes[capa.prenda.id] : null;
+    if (recorte != null) {
+      return RawImage(image: recorte, width: capa.ancho * w, fit: BoxFit.contain);
+    }
+    return Image.network(
+      capa.prenda.urlImagen!,
+      width: capa.ancho * w,
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) => const Icon(Icons.broken_image, size: 40),
+    );
+  }
+
   Widget _capa(int i, double w, double h) {
     final capa = _capas[i];
-    final url = capa.prenda.urlImagen;
-    if (url == null) return const SizedBox.shrink();
+    if (capa.prenda.urlImagen == null) return const SizedBox.shrink();
     final color = Theme.of(context).colorScheme.primary;
 
     return Positioned(
@@ -114,15 +189,53 @@ class _PantallaProbadorState extends State<PantallaProbador> {
             decoration: BoxDecoration(
               border: _seleccionada == i ? Border.all(color: color, width: 2) : null,
             ),
-            child: Image.network(
-              url,
-              width: capa.ancho * w,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const Icon(Icons.broken_image, size: 40),
-            ),
+            child: _imagenDeCapa(capa, w),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _controlesDeRecorte() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Quitar fondo claro de las prendas'),
+          subtitle: const Text('Funciona mejor con fondos lisos y claros.'),
+          value: _sinFondo,
+          onChanged: _procesando
+              ? null
+              : (valor) {
+                  setState(() => _sinFondo = valor);
+                  if (valor && _recortes.isEmpty) {
+                    _procesar();
+                  }
+                },
+        ),
+        if (_sinFondo)
+          Row(
+            children: [
+              const Text('Sensibilidad'),
+              Expanded(
+                child: Slider(
+                  value: _tolerancia,
+                  min: 10,
+                  max: 90,
+                  onChanged: (v) => setState(() => _tolerancia = v),
+                  onChangeEnd: (_) => _procesar(),
+                ),
+              ),
+            ],
+          ),
+        if (_procesando) const LinearProgressIndicator(),
+        if (_errorRecorte != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(_errorRecorte!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+      ],
     );
   }
 
@@ -174,6 +287,8 @@ class _PantallaProbadorState extends State<PantallaProbador> {
             style: TextStyle(fontSize: 13),
           ),
         const SizedBox(height: 8),
+        _controlesDeRecorte(),
+        const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: () => setState(() {
             _capas = _crearCapas();
@@ -181,11 +296,6 @@ class _PantallaProbadorState extends State<PantallaProbador> {
           }),
           icon: const Icon(Icons.restart_alt),
           label: const Text('Restablecer posiciones'),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Las prendas conservan el fondo de su foto. El recorte automático de fondos es un paso pendiente.',
-          style: TextStyle(fontSize: 12),
         ),
       ],
     );
