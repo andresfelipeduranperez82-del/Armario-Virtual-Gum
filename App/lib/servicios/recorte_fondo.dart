@@ -16,7 +16,7 @@ import 'dart:ui' as ui;
 Future<ui.Image> recortarFondo(
   Uint8List bytes, {
   double tolerancia = 38,
-  int anchoMaximo = 600,
+  int anchoMaximo = 800,
 }) async {
   final codec = await ui.instantiateImageCodec(bytes, targetWidth: anchoMaximo);
   final cuadro = await codec.getNextFrame();
@@ -24,13 +24,19 @@ Future<ui.Image> recortarFondo(
   final ancho = origen.width;
   final alto = origen.height;
   final datos = await origen.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
-  origen.dispose();
   codec.dispose();
   if (datos == null) {
+    origen.dispose();
     throw Exception('No se pudo leer la imagen');
   }
   final px = Uint8List.fromList(datos.buffer.asUint8List());
   final total = ancho * alto;
+
+  /* Si el borde ya es transparente, la imagen ya tiene el fondo quitado y se deja igual */
+  if (_bordeTransparente(px, ancho, alto)) {
+    return origen;
+  }
+  origen.dispose();
 
   /* Color de fondo: promedio de los píxeles del borde */
   var sumaR = 0;
@@ -150,4 +156,40 @@ Future<ui.Image> recortarFondo(
   final completer = Completer<ui.Image>();
   ui.decodeImageFromPixels(px, ancho, alto, ui.PixelFormat.rgba8888, completer.complete);
   return completer.future;
+}
+
+/* Indica si la mayoría de los píxeles del borde ya son transparentes */
+bool _bordeTransparente(Uint8List px, int ancho, int alto) {
+  var transparentes = 0;
+  var total = 0;
+  void revisar(int x, int y) {
+    total++;
+    if (px[(y * ancho + x) * 4 + 3] < 128) transparentes++;
+  }
+
+  for (var x = 0; x < ancho; x++) {
+    revisar(x, 0);
+    revisar(x, alto - 1);
+  }
+  for (var y = 1; y < alto - 1; y++) {
+    revisar(0, y);
+    revisar(ancho - 1, y);
+  }
+  return transparentes * 2 > total;
+}
+
+/* Igual que recortarFondo, pero devuelve los bytes de un PNG listo para subir.
+   El PNG conserva la transparencia, así la prenda se ve sin fondo en toda la app. */
+Future<Uint8List> recortarFondoComoPng(
+  Uint8List bytes, {
+  double tolerancia = 38,
+  int anchoMaximo = 800,
+}) async {
+  final imagen = await recortarFondo(bytes, tolerancia: tolerancia, anchoMaximo: anchoMaximo);
+  final datos = await imagen.toByteData(format: ui.ImageByteFormat.png);
+  imagen.dispose();
+  if (datos == null) {
+    throw Exception('No se pudo generar la imagen');
+  }
+  return datos.buffer.asUint8List(datos.offsetInBytes, datos.lengthInBytes);
 }
