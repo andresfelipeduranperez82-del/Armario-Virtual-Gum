@@ -4,6 +4,7 @@ import '../servicios/cliente.dart';
 import '../servicios/outfits_servicio.dart';
 import '../servicios/prendas_servicio.dart';
 import 'pantalla_nuevo_outfit.dart';
+import 'pantalla_probador.dart';
 
 class PantallaOutfits extends StatefulWidget {
   const PantallaOutfits({super.key});
@@ -35,6 +36,12 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
     if (guardado == true) {
       _recargar();
     }
+  }
+
+  void _probar(Outfit outfit) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PantallaProbador(outfit: outfit)),
+    );
   }
 
   Future<void> _eliminar(Outfit outfit) async {
@@ -97,6 +104,7 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
             itemCount: outfits.length,
             itemBuilder: (context, i) => _TarjetaOutfit(
               outfit: outfits[i],
+              alProbar: () => _probar(outfits[i]),
               alEliminar: () => _eliminar(outfits[i]),
             ),
           );
@@ -107,9 +115,10 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
 }
 
 class _TarjetaOutfit extends StatelessWidget {
-  const _TarjetaOutfit({required this.outfit, required this.alEliminar});
+  const _TarjetaOutfit({required this.outfit, required this.alProbar, required this.alEliminar});
 
   final Outfit outfit;
+  final VoidCallback alProbar;
   final VoidCallback alEliminar;
 
   @override
@@ -130,6 +139,11 @@ class _TarjetaOutfit extends StatelessWidget {
                   ),
                 ),
                 Chip(label: Text(estilos[outfit.estilo] ?? outfit.estilo)),
+                IconButton(
+                  onPressed: alProbar,
+                  icon: const Icon(Icons.accessibility_new),
+                  tooltip: 'Probar sobre mi foto',
+                ),
                 IconButton(
                   onPressed: alEliminar,
                   icon: const Icon(Icons.delete_outline),
