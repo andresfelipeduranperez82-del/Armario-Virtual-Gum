@@ -1,45 +1,45 @@
 # Gum Armario Virtual
 
-Aplicación multiplataforma (Android y PC) para digitalizar tu armario con fotos, probarte prendas sobre una foto tuya de cuerpo completo, armar outfits y recibir recomendaciones de tus amigos, con todo sincronizado en tiempo real entre tus dispositivos.
+Aplicación para digitalizar tu armario con fotos, armar outfits probándote las prendas sobre una foto tuya de cuerpo completo o sobre un lienzo sin persona, y recibir recomendaciones de tus amigos, con los cambios sincronizados en tiempo real entre dispositivos.
 
-**Estado del proyecto:** en desarrollo. La versión web ya permite iniciar sesión con Google, gestionar el inventario de prendas y armar outfits. El módulo social, el probador virtual y la versión de Android están pendientes.
-
-## Funciones principales
-
-* **Inventario de prendas:** captura o carga de fotos (cámara y galería en Android, arrastrar y soltar en PC), con categoría, color y estilo obligatorios, búsqueda y filtros avanzados.
-* **Probador virtual:** modo prenda aislada y modo puesta sobre tu foto de cuerpo completo, con un modelo neutro por defecto si prefieres no subir tu foto.
-* **Outfits:** creación de combinaciones con reglas de validez (superior e inferior, o cuerpo completo), nombre y estilo obligatorios.
-* **Módulo social:** amigos vinculados por Gmail que pueden armarte sugerencias de outfits sobre tu foto, para que las aceptes o las descartes.
-* **Sincronización en tiempo real** entre Android y PC, con aviso de estado de conexión.
+**Estado del proyecto:** en desarrollo. La versión web ya cubre inicio de sesión, inventario, outfits, amigos, recomendaciones, foto personal y sincronización en tiempo real. La versión de Android y el probador con inteligencia artificial están pendientes.
 
 ## Lo que ya funciona
 
-* Inicio de sesión con Google y creación automática del perfil.
-* Alta de prendas con foto, guardada en un bucket privado de Supabase Storage.
-* Catálogo con filtros por categoría, estilo y color.
-* Edición de prendas, con reemplazo de la foto, y eliminación con confirmación.
-* Creación de outfits con validación de las reglas en la app y en la base de datos.
-* Lista de outfits con las fotos de sus prendas.
+* **Inicio de sesión con Google** y creación automática del perfil.
+* **Inventario de prendas:** alta con foto, categoría, color y estilo obligatorios, filtros, edición, reemplazo de la foto y eliminación con aviso de cuántos outfits se verían afectados.
+* **Quitar el fondo de las prendas** al subir la foto, con una vista previa y un control de sensibilidad. La prenda se guarda como PNG con transparencia.
+* **Editor de outfits:** el armario con sus categorías a un lado y el lienzo al otro. Con un toque se pone o se quita una prenda, y se puede acomodar, cambiar de tamaño, girar y voltear. Funciona sobre tu foto (modo Perfil) o sin persona (modo Sin perfil).
+* **Outfits guardados** con las reglas de validez: superior e inferior, o cuerpo completo, y una prenda por categoría salvo accesorios.
+* **Amigos por correo de Gmail:** enviar, aceptar, rechazar o cancelar solicitudes, eliminar amigos y bloquear usuarios.
+* **Recomendaciones:** un amigo te arma un outfit con tus prendas y tú lo pruebas sobre tu foto, lo aceptas o lo descartas.
+* **Perfil con foto personal** de cuerpo completo, que solo ven tus amigos confirmados.
+* **Sincronización en tiempo real:** un cambio hecho en un dispositivo aparece en los demás sin recargar, y un aviso indica cuando se pierde la conexión.
 
 ## Capturas
 
 <p>
   <img src="Documentos/Capturas/catalogo.png" alt="Catálogo de prendas con filtros" width="48%">
-  <img src="Documentos/Capturas/nueva_prenda.png" alt="Formulario para crear una prenda" width="48%">
+  <img src="Documentos/Capturas/nueva_prenda.png" alt="Alta de una prenda con recorte de fondo" width="48%">
 </p>
 
 <p>
-  <img src="Documentos/Capturas/nuevo_outfit.png" alt="Creación de un outfit" width="48%">
-  <img src="Documentos/Capturas/mis_outfits.png" alt="Lista de outfits guardados" width="48%">
+  <img src="Documentos/Capturas/editor_outfits_perfil.png" alt="Editor de outfits sobre la foto del perfil" width="48%">
+  <img src="Documentos/Capturas/editor_outfits_sin_perfil.png" alt="Editor de outfits sin perfil" width="48%">
+</p>
+
+<p>
+  <img src="Documentos/Capturas/amigos.png" alt="Amigos y solicitudes" width="48%">
+  <img src="Documentos/Capturas/perfil.png" alt="Perfil con la foto personal" width="48%">
 </p>
 
 ## Tecnologías
 
-* Flutter (Dart) para los clientes Android y PC
+* Flutter (Dart): versión web funcionando, versión de Android pendiente
 * Supabase: Auth, Storage y Realtime
 * PostgreSQL con Row Level Security (RLS) para la privacidad entre amigos
 * Google OAuth 2.0 para el inicio de sesión con Gmail
-* Compresión de imágenes en el cliente (WebP, máximo 1080p, calidad 80%)
+* Procesamiento de imágenes en el cliente: reducción de tamaño y recorte del fondo claro de las prendas
 
 ## Arquitectura
 
@@ -49,7 +49,7 @@ Aplicación multiplataforma (Android y PC) para digitalizar tu armario con fotos
 
 Haz clic en la imagen para verla en tamaño completo.
 
-El inicio de sesión se hace con Google OAuth y Supabase Auth emite el token JWT. Las consultas pasan por PostgreSQL con políticas RLS, de modo que solo el propio usuario y sus amigos confirmados pueden ver su información. Las imágenes se comprimen en el cliente antes de subirse a Supabase Storage, y Supabase Realtime mantiene los dispositivos sincronizados.
+El inicio de sesión se hace con Google OAuth y Supabase Auth emite el token JWT. Las consultas pasan por PostgreSQL con políticas RLS, de modo que solo el propio usuario y sus amigos confirmados pueden ver su información. Las imágenes se procesan en el cliente antes de subirse a buckets privados de Supabase Storage, y Supabase Realtime avisa a los dispositivos cuando algo cambia.
 
 ## Base de datos
 
@@ -59,12 +59,23 @@ El inicio de sesión se hace con Google OAuth y Supabase Auth emite el token JWT
 
 Elegí PostgreSQL con Supabase y no MySQL con un backend propio porque el proyecto necesita guardar datos, guardar fotos y avisar al otro dispositivo cuando algo cambia. Supabase ya trae Auth, Storage y Realtime, y con Row Level Security la privacidad queda en la base de datos y no en código que se me pueda olvidar repetir. Los amigos confirmados pueden ver el catálogo porque una recomendación no tiene sentido si no ven la ropa, pero solo leen: no editan ni borran nada.
 
+Los scripts están en la carpeta BaseDeDatos y se ejecutan en este orden: `schema.sql`, `amigos_funciones.sql`, `perfil_foto.sql` y `tiempo_real.sql`.
+
+## Seguridad
+
+* Todas las tablas tienen Row Level Security activado.
+* Los outfits, las solicitudes de amistad y los bloqueos se crean solo a través de funciones de la base de datos, que validan las reglas antes de guardar.
+* En las solicitudes de amistad, las recomendaciones y los perfiles, cada usuario solo puede modificar las columnas que le corresponden, nunca los identificadores ni el correo.
+* Las imágenes están en buckets privados, con una carpeta por usuario, y se muestran con enlaces temporales.
+* En la aplicación solo va la clave publishable de Supabase. La clave secreta no se usa y el archivo `env.json` no se sube al repositorio.
+* Limitación conocida de Supabase Realtime: los avisos de borrado no pasan por RLS, así que se recibe el identificador de las filas borradas, sin ningún otro dato.
+
 ## Cómo ejecutarlo
 
 Requisitos: Flutter (canal estable), un proyecto de Supabase y un cliente OAuth de Google Cloud.
 
 1. Clona el repositorio.
-2. En Supabase, abre el SQL Editor y ejecuta el contenido de `BaseDeDatos/schema.sql`.
+2. En Supabase, abre el SQL Editor y ejecuta los scripts de `BaseDeDatos` en el orden indicado arriba.
 3. En Supabase, en Authentication, activa el proveedor de Google con tu ID y secreto de cliente. Como Site URL usa `http://localhost:3000` y agrega `http://localhost:3000/**` en las Redirect URLs.
 4. Copia `App/env.example.json` como `App/env.json` y completa la URL del proyecto y la clave publishable.
 5. Desde la carpeta `App`, ejecuta:
@@ -73,8 +84,6 @@ Requisitos: Flutter (canal estable), un proyecto de Supabase y un cliente OAuth 
 flutter pub get
 flutter run -d chrome --web-port=3000 --dart-define-from-file=env.json
 ```
-
-Importante: la clave secreta de Supabase no se usa en la app y nunca debe ir en `env.json`. El archivo `env.json` está en el `.gitignore` y no se sube al repositorio.
 
 ## Documentación
 
@@ -87,10 +96,11 @@ Importante: la clave secreta de Supabase no se usa en la app y nunca debe ir en 
 
 ## Próximos pasos
 
-* Módulo social: amigos por Gmail, solicitudes y recomendaciones de outfits
-* Foto personal y probador virtual
-* Compresión de imágenes a WebP y sincronización en tiempo real
+* Revisión de seguridad de las políticas y documentación de sus resultados
 * Versión de Android con inicio de sesión nativo
+* Probador con modelo 3D y selección de maniquí para quien no tiene foto
+* Probador con inteligencia artificial generativa, como función opcional
+* Compresión de imágenes a WebP
 
 ## Autor
 
