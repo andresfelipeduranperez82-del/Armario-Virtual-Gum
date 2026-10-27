@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../servicios/cliente.dart';
 import '../servicios/prendas_servicio.dart';
 import '../servicios/recomendaciones_servicio.dart';
+import '../servicios/sincronizacion.dart';
 
 /* Bandeja de recomendaciones que te enviaron tus amigos */
 class PantallaRecomendaciones extends StatefulWidget {
@@ -16,11 +17,24 @@ class PantallaRecomendaciones extends StatefulWidget {
 class _PantallaRecomendacionesState extends State<PantallaRecomendaciones> {
   final _servicio = RecomendacionesServicio();
   late Future<List<Recomendacion>> _futuro;
+  List<Recomendacion>? _ultimas;
 
   @override
   void initState() {
     super.initState();
     _futuro = _servicio.recibidas();
+    Sincronizacion.instancia.tema('recomendaciones').addListener(_alCambiarDatos);
+  }
+
+  @override
+  void dispose() {
+    Sincronizacion.instancia.tema('recomendaciones').removeListener(_alCambiarDatos);
+    super.dispose();
+  }
+
+  /* Llegó o cambió una recomendación: se recarga la bandeja */
+  void _alCambiarDatos() {
+    if (mounted) _recargar();
   }
 
   void _recargar() {
@@ -76,13 +90,16 @@ class _PantallaRecomendacionesState extends State<PantallaRecomendaciones> {
       body: FutureBuilder<List<Recomendacion>>(
         future: _futuro,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
           if (snapshot.hasError) {
             return Center(child: Text('Error al cargar: ${snapshot.error}'));
           }
-          final recomendaciones = snapshot.data ?? [];
+          /* Mientras se recarga se siguen mostrando los datos anteriores, para que no parpadee */
+          final recibidas = snapshot.data ?? _ultimas;
+          if (recibidas == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          _ultimas = recibidas;
+          final recomendaciones = recibidas;
           if (recomendaciones.isEmpty) {
             return const Center(child: Text('No tienes recomendaciones pendientes.'));
           }

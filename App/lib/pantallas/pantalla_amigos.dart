@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../servicios/amigos_servicio.dart';
 import '../servicios/cliente.dart';
+import '../servicios/sincronizacion.dart';
 import 'pantalla_recomendar.dart';
 
 class PantallaAmigos extends StatefulWidget {
@@ -26,19 +27,28 @@ class _PantallaAmigosState extends State<PantallaAmigos> {
   void initState() {
     super.initState();
     _cargar();
+    Sincronizacion.instancia.tema('amistades').addListener(_alCambiarDatos);
   }
 
   @override
   void dispose() {
+    Sincronizacion.instancia.tema('amistades').removeListener(_alCambiarDatos);
     _correo.dispose();
     super.dispose();
   }
 
-  Future<void> _cargar() async {
-    setState(() {
-      _cargando = true;
-      _errorCarga = null;
-    });
+  /* Cambió una solicitud, una amistad o un bloqueo: se recarga sin mostrar el indicador de carga */
+  void _alCambiarDatos() {
+    if (mounted) _cargar(silencioso: true);
+  }
+
+  Future<void> _cargar({bool silencioso = false}) async {
+    if (!silencioso) {
+      setState(() {
+        _cargando = true;
+        _errorCarga = null;
+      });
+    }
     try {
       final amistades = await _servicio.listar();
       final bloqueados = await _servicio.bloqueados();

@@ -10,6 +10,7 @@ import '../servicios/perfil_servicio.dart';
 import '../servicios/prendas_servicio.dart';
 import '../servicios/recomendaciones_servicio.dart';
 import '../servicios/reglas_outfit.dart';
+import '../servicios/sincronizacion.dart';
 import '../widgets/prenda_elegible.dart';
 
 /* Una prenda puesta sobre el lienzo.
@@ -78,6 +79,7 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
   final _outfitsServicio = OutfitsServicio();
   final _recomendacionesServicio = RecomendacionesServicio();
   late Future<_Datos> _futuro = _cargar();
+  _Datos? _ultimosDatos;
 
   final List<_Capa> _equipadas = [];
   String? _seleccionadaId;
@@ -91,8 +93,33 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
   double _anchoInicial = 0.5;
   double _anguloInicial = 0;
 
+  static const _temasQueEscucha = ['prendas', 'outfits', 'recomendaciones', 'perfil'];
+
+  @override
+  void initState() {
+    super.initState();
+    for (final tema in _temasQueEscucha) {
+      Sincronizacion.instancia.tema(tema).addListener(_alCambiarDatos);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final tema in _temasQueEscucha) {
+      Sincronizacion.instancia.tema(tema).removeListener(_alCambiarDatos);
+    }
+    super.dispose();
+  }
+
+  /* Cambió algo en la base de datos (por ejemplo desde otro dispositivo): se recargan los datos */
+  void _alCambiarDatos() {
+    if (mounted) _recargar();
+  }
+
   Future<_Datos> _cargar() async {
     final prendas = await _prendasServicio.listar();
+    /* Si una prenda puesta ya no existe, por ejemplo porque se borró en otro dispositivo, se quita del lienzo */
+    _equipadas.removeWhere((c) => !prendas.any((p) => p.id == c.prenda.id));
 
     Perfil? perfil;
     try {
@@ -804,13 +831,15 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
       body: FutureBuilder<_Datos>(
         future: _futuro,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
           if (snapshot.hasError) {
             return Center(child: Text('Error al cargar: ${snapshot.error}'));
           }
-          final datos = snapshot.data!;
+          /* Mientras se recarga se siguen mostrando los datos anteriores, para que no parpadee */
+          final datos = snapshot.data ?? _ultimosDatos;
+          if (datos == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          _ultimosDatos = datos;
           if (datos.prendas.isEmpty) {
             return const Center(child: Text('Primero agrega prendas en la pestaña Prendas.'));
           }

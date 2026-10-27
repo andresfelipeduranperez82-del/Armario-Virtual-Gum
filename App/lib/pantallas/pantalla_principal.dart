@@ -5,6 +5,7 @@ import 'pantalla_catalogo.dart';
 import 'pantalla_outfits.dart';
 import 'pantalla_perfil.dart';
 import 'pantalla_recomendaciones.dart';
+import '../servicios/sincronizacion.dart';
 
 /* Pantalla con la barra inferior para moverse entre las secciones de la app */
 class PantallaPrincipal extends StatefulWidget {
@@ -16,6 +17,18 @@ class PantallaPrincipal extends StatefulWidget {
 
 class _PantallaPrincipalState extends State<PantallaPrincipal> {
   int _indice = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    Sincronizacion.instancia.iniciar();
+  }
+
+  @override
+  void dispose() {
+    Sincronizacion.instancia.detener();
+    super.dispose();
+  }
 
   Widget _pantalla() {
     switch (_indice) {
@@ -35,7 +48,29 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pantalla(),
+      body: Column(
+        children: [
+          /* Aviso que solo aparece cuando se pierde la conexión en tiempo real */
+          ValueListenableBuilder<bool>(
+            valueListenable: Sincronizacion.instancia.conectado,
+            builder: (context, conectado, _) {
+              if (conectado) return const SizedBox.shrink();
+              final colores = Theme.of(context).colorScheme;
+              return Container(
+                width: double.infinity,
+                color: colores.errorContainer,
+                padding: const EdgeInsets.all(6),
+                child: Text(
+                  'Sin conexión. Reconectando...',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: colores.onErrorContainer),
+                ),
+              );
+            },
+          ),
+          Expanded(child: _pantalla()),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _indice,
         onDestinationSelected: (i) => setState(() => _indice = i),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../servicios/cliente.dart';
 import '../servicios/prendas_servicio.dart';
+import '../servicios/sincronizacion.dart';
 import 'pantalla_editar_prenda.dart';
 import 'pantalla_nueva_prenda.dart';
 
@@ -15,6 +16,7 @@ class PantallaCatalogo extends StatefulWidget {
 class _PantallaCatalogoState extends State<PantallaCatalogo> {
   final _servicio = PrendasServicio();
   late Future<List<Prenda>> _futuro;
+  List<Prenda>? _ultimas;
 
   /* Filtros activos. Si valen null, ese filtro no se aplica */
   String? _filtroCategoria;
@@ -25,6 +27,18 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
   void initState() {
     super.initState();
     _futuro = _servicio.listar();
+    Sincronizacion.instancia.tema('prendas').addListener(_alCambiarDatos);
+  }
+
+  @override
+  void dispose() {
+    Sincronizacion.instancia.tema('prendas').removeListener(_alCambiarDatos);
+    super.dispose();
+  }
+
+  /* Otro dispositivo cambió tus prendas: se recarga el catálogo */
+  void _alCambiarDatos() {
+    if (mounted) _recargar();
   }
 
   void _recargar() {
@@ -163,13 +177,16 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
       body: FutureBuilder<List<Prenda>>(
         future: _futuro,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
           if (snapshot.hasError) {
             return Center(child: Text('Error al cargar: ${snapshot.error}'));
           }
-          final todas = snapshot.data ?? [];
+          /* Mientras se recarga se siguen mostrando los datos anteriores, para que no parpadee */
+          final recibidas = snapshot.data ?? _ultimas;
+          if (recibidas == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          _ultimas = recibidas;
+          final todas = recibidas;
           if (todas.isEmpty) {
             return const Center(child: Text('Aún no tienes prendas. Agrega la primera.'));
           }

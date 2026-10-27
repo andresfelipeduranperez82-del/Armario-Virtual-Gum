@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../servicios/cliente.dart';
 import '../servicios/perfil_servicio.dart';
+import '../servicios/sincronizacion.dart';
 
 class PantallaPerfil extends StatefulWidget {
   const PantallaPerfil({super.key});
@@ -23,13 +24,27 @@ class _PantallaPerfilState extends State<PantallaPerfil> {
   void initState() {
     super.initState();
     _cargar();
+    Sincronizacion.instancia.tema('perfil').addListener(_alCambiarDatos);
   }
 
-  Future<void> _cargar() async {
-    setState(() {
-      _cargando = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    Sincronizacion.instancia.tema('perfil').removeListener(_alCambiarDatos);
+    super.dispose();
+  }
+
+  /* Tu perfil cambió en otro dispositivo: se recarga sin mostrar el indicador de carga */
+  void _alCambiarDatos() {
+    if (mounted) _cargar(silencioso: true);
+  }
+
+  Future<void> _cargar({bool silencioso = false}) async {
+    if (!silencioso) {
+      setState(() {
+        _cargando = true;
+        _error = null;
+      });
+    }
     try {
       final perfil = await _servicio.cargar();
       if (!mounted) return;
