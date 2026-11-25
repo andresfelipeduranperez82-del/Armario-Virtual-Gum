@@ -1,6 +1,19 @@
+# Borradores locales y archivos temporales de Word
 ~$*
 *.tmp
-.env
-*.env
 Documentos/Modelo_De_Datos.docx
 Documentos/Objetivos_Del_Proyecto.docx
+
+# Credenciales y llaves privadas
+.env
+*.env
+App/env.json
+*.jks
+*.keystore
+key.properties
+google-services.json
+GoogleService-Info.plist
+
+# Caché y compilación de Flutter
+.dart_tool/
+build/

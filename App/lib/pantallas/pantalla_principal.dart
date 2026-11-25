@@ -6,6 +6,7 @@ import 'pantalla_outfits.dart';
 import 'pantalla_perfil.dart';
 import 'pantalla_recomendaciones.dart';
 import '../servicios/sincronizacion.dart';
+import '../widgets/encabezado_gum.dart';
 
 /* Pantalla con la barra inferior para moverse entre las secciones de la app */
 class PantallaPrincipal extends StatefulWidget {
@@ -33,7 +34,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   Widget _pantalla() {
     switch (_indice) {
       case 0:
-        return const PantallaCatalogo();
+        return PantallaCatalogo(alIrA: (i) => setState(() => _indice = i));
       case 1:
         return const PantallaOutfits();
       case 2:
@@ -50,6 +51,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
     return Scaffold(
       body: Column(
         children: [
+          EncabezadoGum(indice: _indice, alIrA: (i) => setState(() => _indice = i)),
           /* Aviso que solo aparece cuando se pierde la conexión en tiempo real */
           ValueListenableBuilder<bool>(
             valueListenable: Sincronizacion.instancia.conectado,
@@ -68,18 +70,14 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
               );
             },
           ),
-          Expanded(child: _pantalla()),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _indice,
-        onDestinationSelected: (i) => setState(() => _indice = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.checkroom), label: 'Prendas'),
-          NavigationDestination(icon: Icon(Icons.style), label: 'Outfits'),
-          NavigationDestination(icon: Icon(Icons.group), label: 'Amigos'),
-          NavigationDestination(icon: Icon(Icons.inbox), label: 'Recomendaciones'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Perfil'),
+          /* El encabezado ya cubre la zona de la barra de estado, las pantallas no la repiten */
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: _pantalla(),
+            ),
+          ),
         ],
       ),
     );

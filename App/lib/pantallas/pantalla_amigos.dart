@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../servicios/amigos_servicio.dart';
-import '../servicios/cliente.dart';
 import '../servicios/sincronizacion.dart';
 import 'pantalla_recomendar.dart';
 
@@ -226,10 +225,6 @@ class _PantallaAmigosState extends State<PantallaAmigos> {
         title: const Text('Amigos'),
         actions: [
           IconButton(onPressed: _cargar, icon: const Icon(Icons.refresh), tooltip: 'Actualizar'),
-          TextButton(
-            onPressed: () => supabase.auth.signOut(),
-            child: const Text('Cerrar sesión'),
-          ),
         ],
       ),
       body: Center(

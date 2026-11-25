@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../servicios/cliente.dart';
 import '../servicios/prendas_servicio.dart';
 import '../servicios/sincronizacion.dart';
+import '../widgets/barra_filtros_gum.dart';
 import 'pantalla_editar_prenda.dart';
 import 'pantalla_nueva_prenda.dart';
 
 class PantallaCatalogo extends StatefulWidget {
-  const PantallaCatalogo({super.key});
+  const PantallaCatalogo({super.key, this.alIrA});
+
+  /* Cambia de pestaña en la pantalla principal: 1 Outfits, 2 Amigos, 3 Recomendaciones, 4 Perfil */
+  final ValueChanged<int>? alIrA;
 
   @override
   State<PantallaCatalogo> createState() => _PantallaCatalogoState();
@@ -84,144 +87,129 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
     }).toList();
   }
 
-  Widget _filtro({
-    required String titulo,
-    required String etiquetaTodos,
-    required String? valor,
-    required Map<String, String> opciones,
-    required ValueChanged<String?> alCambiar,
-  }) {
-    return SizedBox(
-      width: 200,
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: titulo,
-          border: const OutlineInputBorder(),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String?>(
-            isDense: true,
-            isExpanded: true,
-            value: valor,
-            items: [
-              DropdownMenuItem<String?>(value: null, child: Text(etiquetaTodos)),
-              ...opciones.entries.map(
-                (e) => DropdownMenuItem<String?>(value: e.key, child: Text(e.value)),
+  /* Las prendas se acomodan en filas centradas. Si una fila se llena, la siguiente prenda baja */
+  Widget _rejilla(List<Prenda> visibles) {
+    return LayoutBuilder(
+      builder: (context, restricciones) {
+        /* En pantallas angostas caben dos por fila, en las anchas cada tarjeta mide 180 */
+        final ancho = restricciones.maxWidth < 420 ? (restricciones.maxWidth - 32 - 12) / 2 : 180.0;
+        final alto = ancho / 0.8;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final p in visibles)
+                    _Aparece(
+                      key: ValueKey(p.id),
+                      child: SizedBox(
+                        width: ancho,
+                        height: alto,
+                        child: _TarjetaPrenda(prenda: p, alTocar: () => _editar(p)),
+                      ),
+                    ),
+                ],
               ),
-            ],
-            onChanged: alCambiar,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _barraDeFiltros() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          _filtro(
-            titulo: 'Categoría',
-            etiquetaTodos: 'Todas',
-            valor: _filtroCategoria,
-            opciones: categorias,
-            alCambiar: (v) => setState(() => _filtroCategoria = v),
-          ),
-          _filtro(
-            titulo: 'Estilo',
-            etiquetaTodos: 'Todos',
-            valor: _filtroEstilo,
-            opciones: estilos,
-            alCambiar: (v) => setState(() => _filtroEstilo = v),
-          ),
-          _filtro(
-            titulo: 'Color',
-            etiquetaTodos: 'Todos',
-            valor: _filtroColor,
-            opciones: {for (final c in colores) c: c},
-            alCambiar: (v) => setState(() => _filtroColor = v),
-          ),
-          if (_hayFiltros)
-            TextButton.icon(
-              onPressed: _limpiarFiltros,
-              icon: const Icon(Icons.filter_alt_off),
-              label: const Text('Limpiar filtros'),
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mi armario'),
-        actions: [
-          TextButton(
-            onPressed: () => supabase.auth.signOut(),
-            child: const Text('Cerrar sesión'),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _agregar,
         icon: const Icon(Icons.add),
         label: const Text('Agregar prenda'),
       ),
-      body: FutureBuilder<List<Prenda>>(
-        future: _futuro,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Error al cargar: ${snapshot.error}'));
-          }
-          /* Mientras se recarga se siguen mostrando los datos anteriores, para que no parpadee */
-          final recibidas = snapshot.data ?? _ultimas;
-          if (recibidas == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          _ultimas = recibidas;
-          final todas = recibidas;
-          if (todas.isEmpty) {
-            return const Center(child: Text('Aún no tienes prendas. Agrega la primera.'));
-          }
+      body: Column(
+        children: [
+          BarraFiltrosGum(
+            opcionesCategoria: categorias,
+            categoriaElegida: _filtroCategoria,
+            alElegirCategoria: (clave) => setState(() => _filtroCategoria = clave),
+            opcionesEstilo: estilos,
+            estiloElegido: _filtroEstilo,
+            alElegirEstilo: (clave) => setState(() => _filtroEstilo = clave),
+            opcionesColor: {for (final c in colores) c: c},
+            colorElegido: _filtroColor,
+            alElegirColor: (clave) => setState(() => _filtroColor = clave),
+            sinFiltros: !_hayFiltros,
+            alMostrarTodas: _limpiarFiltros,
+            alIrA: widget.alIrA ?? (_) {},
+          ),
+          Expanded(
+            child: FutureBuilder<List<Prenda>>(
+              future: _futuro,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error al cargar: ${snapshot.error}'));
+                }
+                /* Mientras se recarga se siguen mostrando los datos anteriores, para que no parpadee */
+                final recibidas = snapshot.data ?? _ultimas;
+                if (recibidas == null) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                _ultimas = recibidas;
+                final todas = recibidas;
+                if (todas.isEmpty) {
+                  return const Center(child: Text('Aún no tienes prendas. Agrega la primera.'));
+                }
 
-          final visibles = _filtrar(todas);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _barraDeFiltros(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Text('Mostrando ${visibles.length} de ${todas.length} prendas'),
-              ),
-              Expanded(
-                child: visibles.isEmpty
-                    ? const Center(child: Text('Ninguna prenda coincide con los filtros.'))
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(12),
-                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 220,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 0.8,
-                        ),
-                        itemCount: visibles.length,
-                        itemBuilder: (context, i) => _TarjetaPrenda(
-                          prenda: visibles[i],
-                          alTocar: () => _editar(visibles[i]),
-                        ),
-                      ),
-              ),
-            ],
-          );
-        },
+                final visibles = _filtrar(todas);
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                      child: Center(child: Text('Mostrando ${visibles.length} de ${todas.length} prendas')),
+                    ),
+                    Expanded(
+                      child: visibles.isEmpty
+                          ? const Center(child: Text('Ninguna prenda coincide con los filtros.'))
+                          : _rejilla(visibles),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+/* Animación de entrada: la prenda aparece con un fundido y un leve acercamiento.
+   Como cada una tiene su llave, solo se anima la que entra, no las que ya estaban */
+class _Aparece extends StatelessWidget {
+  const _Aparece({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+      child: child,
+      builder: (context, t, hijo) {
+        return Opacity(
+          opacity: t,
+          child: Transform.scale(scale: 0.9 + 0.1 * t, child: hijo),
+        );
+      },
     );
   }
 }
@@ -236,31 +224,32 @@ class _TarjetaPrenda extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = prenda.urlImagen;
     return Card(
+      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: alTocar,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: url == null
-                ? const Icon(Icons.checkroom, size: 48)
-                : Image.network(
-                    url,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(Icons.broken_image, size: 48),
-                  ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Text(
-              '${categorias[prenda.categoria] ?? prenda.categoria}, ${prenda.colorPrincipal}, ${estilos[prenda.estilo] ?? prenda.estilo}',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: url == null
+                  ? const Icon(Icons.checkroom, size: 48)
+                  : Image.network(
+                      url,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Icon(Icons.broken_image, size: 48),
+                    ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                '${categorias[prenda.categoria] ?? prenda.categoria}, ${prenda.colorPrincipal}, ${estilos[prenda.estilo] ?? prenda.estilo}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../servicios/cliente.dart';
+import '../servicios/maniqui_servicio.dart';
 import '../servicios/outfits_servicio.dart';
 import '../servicios/perfil_servicio.dart';
 import '../servicios/prendas_servicio.dart';
@@ -12,6 +12,7 @@ import '../servicios/recomendaciones_servicio.dart';
 import '../servicios/reglas_outfit.dart';
 import '../servicios/sincronizacion.dart';
 import '../widgets/prenda_elegible.dart';
+import '../widgets/maniqui.dart';
 
 /* Una prenda puesta sobre el lienzo.
    El centro va como fracción del lienzo. El anclaje vertical dice qué punto de la prenda
@@ -36,6 +37,7 @@ class _Datos {
   _Datos({
     required this.prendas,
     required this.perfil,
+    this.maniqui,
     required this.outfits,
     required this.recomendaciones,
     this.errorOutfits,
@@ -44,6 +46,7 @@ class _Datos {
 
   final List<Prenda> prendas;
   final Perfil? perfil;
+  final TipoManiqui? maniqui;
   final List<Outfit> outfits;
   final List<Recomendacion> recomendaciones;
   final String? errorOutfits;
@@ -128,6 +131,14 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
       perfil = null;
     }
 
+    /* El maniquí que se dibuja cuando no hay foto. Si falla, se dibuja uno neutro */
+    TipoManiqui? maniqui;
+    try {
+      maniqui = await ManiquiServicio().cargar();
+    } catch (_) {
+      maniqui = null;
+    }
+
     var outfits = <Outfit>[];
     String? errorOutfits;
     try {
@@ -147,6 +158,7 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
     return _Datos(
       prendas: prendas,
       perfil: perfil,
+      maniqui: maniqui,
       outfits: outfits,
       recomendaciones: recomendaciones,
       errorOutfits: errorOutfits,
@@ -324,7 +336,7 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
 
   /* ---------- Lienzo de la derecha ---------- */
 
-  Widget _fondo(Perfil? perfil, double alto) {
+  Widget _fondo(Perfil? perfil, TipoManiqui? maniqui) {
     final color = Theme.of(context).colorScheme.surfaceContainerHighest;
     /* Sin perfil: lienzo liso, sin persona */
     if (!_conPerfil) {
@@ -332,10 +344,7 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
     }
     final url = perfil?.urlFoto;
     if (url == null) {
-      return Container(
-        color: color,
-        child: Center(child: Icon(Icons.accessibility_new, size: alto * 0.8, color: Colors.black26)),
-      );
+      return Container(color: color, child: Maniqui(tipo: maniqui));
     }
     return Image.network(
       url,
@@ -427,7 +436,7 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
     );
   }
 
-  Widget _lienzo(Perfil? perfil) {
+  Widget _lienzo(Perfil? perfil, TipoManiqui? maniqui) {
     final dibujo = [..._equipadas]
       ..sort((a, b) => _ordenDeDibujo.indexOf(a.prenda.categoria).compareTo(_ordenDeDibujo.indexOf(b.prenda.categoria)));
     return AspectRatio(
@@ -440,7 +449,7 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
             borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
-                Positioned.fill(child: _fondo(perfil, h)),
+                Positioned.fill(child: _fondo(perfil, maniqui)),
                 for (final capa in dibujo) _capaPuesta(capa, w, h),
               ],
             ),
@@ -538,7 +547,7 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: Center(child: _lienzo(datos.perfil)),
+            child: Center(child: _lienzo(datos.perfil, datos.maniqui)),
           ),
         ),
         Padding(
@@ -822,10 +831,6 @@ class _PantallaOutfitsState extends State<PantallaOutfits> {
         title: const Text('Outfits'),
         actions: [
           IconButton(onPressed: _recargar, icon: const Icon(Icons.refresh), tooltip: 'Actualizar'),
-          TextButton(
-            onPressed: () => supabase.auth.signOut(),
-            child: const Text('Cerrar sesión'),
-          ),
         ],
       ),
       body: FutureBuilder<_Datos>(

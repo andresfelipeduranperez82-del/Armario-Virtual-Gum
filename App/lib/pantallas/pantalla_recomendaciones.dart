@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../servicios/cliente.dart';
 import '../servicios/prendas_servicio.dart';
 import '../servicios/recomendaciones_servicio.dart';
 import '../servicios/sincronizacion.dart';
@@ -81,10 +80,6 @@ class _PantallaRecomendacionesState extends State<PantallaRecomendaciones> {
         title: const Text('Recomendaciones'),
         actions: [
           IconButton(onPressed: _recargar, icon: const Icon(Icons.refresh), tooltip: 'Actualizar'),
-          TextButton(
-            onPressed: () => supabase.auth.signOut(),
-            child: const Text('Cerrar sesión'),
-          ),
         ],
       ),
       body: FutureBuilder<List<Recomendacion>>(

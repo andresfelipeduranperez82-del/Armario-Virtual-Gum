@@ -1,5 +1,15 @@
 import 'cliente.dart';
 
+/* Error que se muestra al usuario, con el mensaje que devuelve la base de datos */
+class ErrorDeSolicitud implements Exception {
+  ErrorDeSolicitud(this.mensaje);
+
+  final String mensaje;
+
+  @override
+  String toString() => mensaje;
+}
+
 class Amistad {
   Amistad({
     required this.id,
@@ -60,9 +70,13 @@ class AmigosServicio {
     return filas.map((f) => Bloqueado.desdeMapa(Map<String, dynamic>.from(f as Map))).toList();
   }
 
-  /* La función de la base de datos valida: correo existente, no auto agregarse, sin duplicados ni bloqueos */
+  /* La función de la base de datos valida: correo existente, no auto agregarse, sin duplicados ni bloqueos,
+     y limita los intentos por hora. Devuelve 'ok' o el mensaje de error. */
   Future<void> enviarSolicitud(String email) async {
-    await supabase.rpc('enviar_solicitud', params: {'p_email': email});
+    final resultado = await supabase.rpc('enviar_solicitud', params: {'p_email': email});
+    if (resultado != 'ok') {
+      throw ErrorDeSolicitud('$resultado');
+    }
   }
 
   Future<void> aceptar(String amistadId) async {

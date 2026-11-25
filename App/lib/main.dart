@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'pantallas/pantalla_login.dart';
 import 'pantallas/pantalla_principal.dart';
 import 'servicios/cliente.dart';
+import 'servicios/tema.dart';
 
 /* Las claves llegan desde env.json con --dart-define-from-file, nunca escritas aquí */
 const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
@@ -12,6 +13,7 @@ const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+  await TemaServicio.instancia.cargar();
   runApp(const GumApp());
 }
 
@@ -20,10 +22,21 @@ class GumApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Gum Armario Virtual',
-      theme: ThemeData(colorSchemeSeed: Colors.deepPurple, useMaterial3: true),
-      home: const PuertaDeEntrada(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: TemaServicio.instancia.modo,
+      builder: (context, modo, _) {
+        return MaterialApp(
+          title: 'Gum Armario Virtual',
+          theme: ThemeData(colorSchemeSeed: Colors.deepPurple, useMaterial3: true),
+          darkTheme: ThemeData(
+            colorSchemeSeed: Colors.deepPurple,
+            brightness: Brightness.dark,
+            useMaterial3: true,
+          ),
+          themeMode: modo,
+          home: const PuertaDeEntrada(),
+        );
+      },
     );
   }
 }

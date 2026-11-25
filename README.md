@@ -59,7 +59,13 @@ El inicio de sesión se hace con Google OAuth y Supabase Auth emite el token JWT
 
 Elegí PostgreSQL con Supabase y no MySQL con un backend propio porque el proyecto necesita guardar datos, guardar fotos y avisar al otro dispositivo cuando algo cambia. Supabase ya trae Auth, Storage y Realtime, y con Row Level Security la privacidad queda en la base de datos y no en código que se me pueda olvidar repetir. Los amigos confirmados pueden ver el catálogo porque una recomendación no tiene sentido si no ven la ropa, pero solo leen: no editan ni borran nada.
 
-Los scripts están en la carpeta BaseDeDatos y se ejecutan en este orden: `schema.sql`, `amigos_funciones.sql`, `perfil_foto.sql` y `tiempo_real.sql`.
+El orden secuencial de ejecución de los scripts debe actualizarse para reflejar el flujo final de despliegue:
+
+1.schema.sql
+2.amigos_funciones.sql
+3.perfil_foto.sql
+4.tiempo_real.sql
+5.endurecimiento.sql
 
 ## Seguridad
 
@@ -93,6 +99,7 @@ flutter run -d chrome --web-port=3000 --dart-define-from-file=env.json
 * [Flujo de autenticación e inventario](Documentos/Diagramas/flujo_autenticacion_inventario.png)
 * [Flujo del probador y creación de outfits](Documentos/Diagramas/flujo_probador_outfits.png)
 * [Flujo del módulo social y sincronización](Documentos/Diagramas/flujo_social_sincronizacion.png)
+* [Revisión de seguridad](Documentos/Revision_De_Seguridad.md)
 
 ## Próximos pasos
 
